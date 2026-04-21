@@ -25,6 +25,9 @@ from .core.utils import extract_json_url
 
 
 class ParserPlugin(Star):
+    _GROUP_FEEDBACK_EMOJI_ID = 124
+    _GROUP_FEEDBACK_EMOJI_TYPE = "1"
+
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.cfg = PluginConfig(config, context=context)
@@ -195,6 +198,26 @@ class ParserPlugin(Star):
 
         # 发送
         await self.sender.send_parse_result(event, parse_res)
+        await self._apply_group_feedback_emoji(event)
+
+    async def _apply_group_feedback_emoji(self, event: AstrMessageEvent):
+        """群聊成功解析后，给触发消息补一个反馈表情。"""
+        if not isinstance(event, AiocqhttpMessageEvent) or event.is_private_chat():
+            return
+
+        raw = event.message_obj.raw_message
+        if not isinstance(raw, dict):
+            return
+
+        try:
+            await event.bot.set_msg_emoji_like(
+                message_id=int(raw["message_id"]),
+                emoji_id=self._GROUP_FEEDBACK_EMOJI_ID,
+                emoji_type=self._GROUP_FEEDBACK_EMOJI_TYPE,
+                set=True,
+            )
+        except Exception as e:
+            logger.debug(f"[parser] 群聊补贴表情失败: {e}")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("开启解析")
